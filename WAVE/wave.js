@@ -205,10 +205,44 @@ function preload() {
   planetImages["Neptune"] = neptuneImage;
 }
 
+// Add near the top of the file with other global variables
+let isMuted = true; // Start muted
+
+// Add after the setup() function
+function setupMuteButton() {
+  const muteButton = document.getElementById("muteButton");
+  const muteSlash = muteButton.querySelector(".mute-slash");
+
+  // Set initial state
+  Tone.Destination.mute = true;
+
+  muteButton.addEventListener("click", () => {
+    isMuted = !isMuted;
+    muteSlash.style.display = isMuted ? "block" : "none";
+    Tone.Destination.mute = isMuted;
+  });
+}
+
+function updatePlanetInfo(planet) {
+  // Hide all planet info boxes
+  document.querySelectorAll(".planet-info").forEach((box) => {
+    box.classList.remove("active");
+  });
+
+  // Show the selected planet's info box
+  const planetInfo = document.getElementById(`${planet}-info`);
+  if (planetInfo) {
+    planetInfo.classList.add("active");
+  }
+}
+
 function setup() {
   let canvas = createCanvas(windowWidth, windowHeight);
   canvas.position(0, 0);
   canvas.style("z-index", "100");
+
+  // Add this line to setup the mute button
+  setupMuteButton();
 
   // Create dropdown for planet selection
   planetSelect = createSelect();
@@ -238,15 +272,19 @@ function setup() {
   // Initialize stopwatch
   stopwatch = new Stopwatch();
 
-  // Create left and right arrow buttons
-  let leftArrow = createButton("<");
-  leftArrow.position(width / 2 - 25, height - 50); // Position 50px from the bottom
-  leftArrow.style("z-index", "101"); // Ensure the buttons are above the canvas
+  // Create left and right arrow buttons with images
+  let leftArrow = createButton("");
+  leftArrow.position(width / 2 - 60, height - 50);
+  leftArrow.style("z-index", "101");
+  leftArrow.style("position", "absolute");
+  leftArrow.class("arrow-button left-arrow");
   leftArrow.mousePressed(() => cyclePlanet(-1));
 
-  let rightArrow = createButton(">");
-  rightArrow.position(width / 2 + 25, height - 50); // Position 50px from the bottom
-  rightArrow.style("z-index", "101"); // Ensure the buttons are above the canvas
+  let rightArrow = createButton("");
+  rightArrow.position(width / 2 + 15, height - 50);
+  rightArrow.style("z-index", "101");
+  rightArrow.style("position", "absolute");
+  rightArrow.class("arrow-button right-arrow");
   rightArrow.mousePressed(() => cyclePlanet(1));
 }
 
@@ -269,22 +307,26 @@ let synthA;
 let synthB;
 
 function setPlanetSpeed(planet) {
-  let planet_day_length = planetDaysInSeconds[planet] || 86400; // Default to Earth if not found
+  updatePlanetInfo(planet);
 
-  // Calculate the target number of waves based on the planet's day length
-  targetWaves = (86400 / planet_day_length) * 20; // Adjust the multiplier (30) as needed
+  let planet_day_length = planetDaysInSeconds[planet] || 86400;
 
-  // Set the speed of the stopwatch relative to Earth's seconds per day
+  // Calculate waves and set stopwatch speed
+  targetWaves = (86400 / planet_day_length) * 20;
   stopwatchSpeed = 86400 / planet_day_length;
-
-  // Reset transition progress for smooth interpolation
   transitionProgress = 0;
 
-  // Adjust the BPM of the transport according to the planet's day length
-  const earthBpm = 120; // Earth's default BPM
-  const planetBpm = (86400 / planet_day_length) * earthBpm;
-  Tone.Transport.bpm.value = planetBpm; // Set the new BPM
+  // Start audio context if needed
+  if (Tone.context.state !== "running") {
+    Tone.start();
+  }
 
+  // Rest of the existing setPlanetSpeed code...
+  const earthBpm = 120;
+  const planetBpm = (86400 / planet_day_length) * earthBpm;
+  Tone.Transport.bpm.value = planetBpm;
+
+  // Continue with synth setup...
   // Dispose existing loops and synths to avoid overlaps
   if (loopA) {
     loopA.stop();
@@ -331,49 +373,6 @@ function setPlanetSpeed(planet) {
     Tone.Transport.start();
   }
 }
-
-// function setPlanetSpeed(planet) {
-//   let planet_day_length = planetDaysInSeconds[planet] || 86400; // Default to Earth if not found
-
-//   // Calculate the target number of waves based on the planet's day length
-//   targetWaves = (86400 / planet_day_length) * 30; // Adjust the multiplier (30) as needed
-
-//   // Set the speed of the stopwatch relative to the Earth's seconds per day
-//   stopwatchSpeed = 86400 / planet_day_length;
-
-//   // Reset transition progress for smooth interpolation
-//   transitionProgress = 0;
-
-//   // create two monophonic synths
-//   const synthA = new Tone.FMSynth().toDestination();
-//   const synthB = new Tone.AMSynth().toDestination();
-
-//   // Set the volume to 20%
-//   synthA.volume.value = -12; // -12 dB is approximately 20% volume
-//   synthB.volume.value = -12; // -12 dB is approximately 20% volume
-
-//   // Function to convert currentWaves to a usable frequency (e.g., from MIDI note numbers)
-//   function getFrequencyFromWaves(waves) {
-//     // Map currentWaves to a frequency range (you can adjust the mapping range)
-//     return Tone.Frequency(waves * 2 + 20, "midi").toFrequency(); // Example formula
-//   }
-
-//   //play a note every quarter-note
-//   const loopA = new Tone.Loop((time) => {
-//     // Use currentWaves to modulate the frequency dynamically
-//     const frequency = getFrequencyFromWaves(currentWaves);
-//     synthA.triggerAttackRelease(frequency, "8n", time);
-//   }, "4n").start(0);
-
-//   //play another note every off quarter-note, by starting it "8n"
-//   const loopB = new Tone.Loop((time) => {
-//     const frequency = getFrequencyFromWaves(currentWaves + 5); // Offset frequency slightly
-//     synthB.triggerAttackRelease(frequency, "8n", time);
-//   }, "4n").start("8n");
-
-//   // all loops start when the Transport is started
-//   Tone.getTransport().start();
-// }
 
 function cyclePlanet(direction) {
   // Get the current selected planet
